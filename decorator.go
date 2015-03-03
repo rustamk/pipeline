@@ -21,6 +21,14 @@ const CLIENT_ID string = "collectd-decorator"
 const KAFKA_HOST string = "192.168.59.103:9092"
 const KAFKA_TOPIC string = "test"
 
+func getProducerMessage(i int) string {
+	if i%2 == 0 {
+		return fmt.Sprintf("hello world %d", i)
+	} else {
+		return fmt.Sprintf("world hello %d", i)
+	}
+}
+
 func produce(c *sarama.Client) {
 
 	// Initialize producer
@@ -35,7 +43,7 @@ func produce(c *sarama.Client) {
 	defer p.Close()
 
 	for i := 0; i < 5000; i++ {
-		val := fmt.Sprintf("\"hello\":\"world %d\"", i)
+		val := getProducerMessage(i)
 		msg := &sarama.ProducerMessage{
 			Topic: KAFKA_TOPIC,
 			Key:   sarama.ByteEncoder([]byte("xxx")),
