@@ -27,9 +27,9 @@ const BATCH_SIZE = 10000
 const MAX_BYTES_TO_LOAD int64 = 5000
 const DATA_DIR = "/var/lib/collectd"
 const PROCESSING_FILE_NAME = "load_info.txt"
-const CLIENT_ID string = "collectd-decorator"
-const KAFKA_HOST string = "127.0.0.1:9092"
-const KAFKA_TOPIC string = "test"
+const CLIENT_ID string = "plexus-collectd"
+const KAFKA_TOPIC string = "sde-collectd"
+var KAFKA_BROKERS = []string{"172.30.18.139:9092","172.30.18.140:9092"}
 
 // This process is started from the command line main method.  Runs in an endless loop processing data deltas on the plexus server and sending to ingest
 func main() {
@@ -200,11 +200,21 @@ func sendAllData(processMap map[string]ServerMetric) {
 
 // Send list of server metrics to kafka broker
 func sendDataToKafka(mapIn map[string]ServerMetric) {
-    fmt.Println("sendDataToKafka")
-    jsonbytes,_ := json.Marshal(mapIn)
+    fmt.Println(time.Now(), "sendDataToKafka")
+
+    // create a list from the map object passed in
+    objectList := make([]ServerMetric, len(mapIn))
+    i := 0
+    for _,value := range mapIn {
+        objectList[i] = value
+        i += 1
+    }
+
+    resultsMap := map[string][]ServerMetric{"MetricList": objectList}
+    jsonbytes,_ := json.Marshal(resultsMap)
 
     clientConfig := sarama.NewClientConfig()
-    client,_ := sarama.NewClient(CLIENT_ID, []string{KAFKA_HOST}, clientConfig)
+    client,_ := sarama.NewClient(CLIENT_ID, KAFKA_BROKERS, clientConfig)
     defer client.Close()
 
     producerConfig := sarama.NewProducerConfig()
