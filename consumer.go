@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
+
 	"github.comcast.com/viper-sde/sarama"
 )
 
@@ -27,6 +29,7 @@ type PartitionConsumer interface {
 
 // Creates a new Consumer with the given topic and client.
 func NewConsumer(topic string, outboundChan chan []byte, client *sarama.Client) (*Consumer, error) {
+	glog.Infof("Initializing new consumer for topic [%s]", topic)
 	errors := make(chan error)
 	var c *Consumer = &Consumer{
 		errors:   errors,
@@ -72,6 +75,7 @@ func (c *Consumer) Start() {
 	// Determine the number of Kafka partitions we need to read from.
 	partitions, err := c.client.Partitions(c.topic)
 	if err != nil {
+		glog.Error(err)
 		c.err = err
 		return
 	}
@@ -80,6 +84,7 @@ func (c *Consumer) Start() {
 	// If the number of Kafka partitions is changed during runtime, this will chug along unaffected, but
 	// data pushed into the new partitions will not be ingested.  The process will need to be restarted.
 	for partition := range partitions {
+		glog.Infof("Initializing partition %d at offset %d", partition, sarama.LatestOffsets)
 		p := int32(partition)
 		offset, _ := c.client.GetOffset(c.topic, p, sarama.LatestOffsets)
 		partitionConsumer, _ := c.consumer.ConsumePartition(c.topic, p, offset)
@@ -95,6 +100,7 @@ func partitionListener(pc PartitionConsumer, errChan chan<- error, rawCollectd c
 		case msg := <-pc.Messages():
 			rawCollectd <- msg.Value
 		case msg := <-pc.Errors():
+			glog.Error(msg.Error())
 			errChan <- errors.New(msg.Error())
 			return
 		default:

@@ -2,12 +2,18 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.comcast.com/viper-sde/gocollectd"
 	"github.comcast.com/viper-sde/sarama"
 )
+
+var _ = fmt.Println
+var kafkaHost []string = []string{"192.168.59.103:9092"}
 
 const (
 	clientId string = "collectd-decorator"
@@ -16,12 +22,11 @@ const (
 	decoratedTopic string = "test-decorated"
 )
 
-var kafkaHost []string = []string{"192.168.59.103:9092"}
-
 // Creates a new decorator
 func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error) {
 	cache := make(map[string]map[string]string)
-	cache["f1710c7cbd79"] = map[string]string{
+	glog.Warning("Preheating cache with bullshit map.")
+	cache["93a1e476b36b"] = map[string]string{
 		"cluster":   "a",
 		"esxi_host": "10.22.222.2",
 		"docker":    "1",
@@ -54,10 +59,11 @@ func (d *Decorator) Start() {
 		select {
 		case msg := <-d.inbound:
 			err := d.parseCollectdPacket(msg)
-			fmt.Println(err)
+			glog.Error(err)
 		default:
-			fmt.Println("bbb")
-			time.Sleep(500 * time.Millisecond)
+			sleep := 250 * time.Millisecond
+			glog.Info("No inbound packets.  Sleeping ", sleep)
+			time.Sleep(sleep)
 		}
 	}
 }
@@ -81,9 +87,9 @@ func (d *Decorator) parseCollectdPacket(b []byte) error {
 				}
 			}
 		}
-		fmt.Println(meta)
+		glog.Infof("Retrieved metadata for %s: [%s]", packet.Hostname, meta)
 		val, _ := packet.Values()[0].Number()
-		fmt.Println(i, packet.Hostname, packet.Name(), packet.TimeUnix(), packet.Plugin, packet.PluginInstance,
+		glog.Info(i, packet.Hostname, packet.Name(), packet.TimeUnix(), packet.Plugin, packet.PluginInstance,
 			packet.Type, packet.TypeInstance, packet.ValueNames(), val)
 	}
 	return nil
@@ -106,6 +112,8 @@ func (d *Decorator) GetRemoteHostData(hostname string) (map[string]string, error
 }
 
 func main() {
+	flag.Set("logtostderr", "true")
+
 	config := sarama.NewConfig()
 	config.ClientID = clientId
 
