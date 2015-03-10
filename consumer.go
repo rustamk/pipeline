@@ -8,6 +8,8 @@ import (
 	"github.comcast.com/viper-sde/sarama"
 )
 
+var _ = fmt.Println
+
 // stub wrapper around sarama.Client
 type Client interface {
 	Partitions()
@@ -81,9 +83,7 @@ func (c *Consumer) Start() {
 		p := int32(partition)
 		offset, _ := c.client.GetOffset(c.topic, p, sarama.LatestOffsets)
 		partitionConsumer, _ := c.consumer.ConsumePartition(c.topic, p, offset)
-		fmt.Println("Creating Partition", partition)
 		go partitionListener(partitionConsumer, c.errors, c.outbound)
-		fmt.Println("Created Partition", partition)
 	}
 }
 
@@ -93,16 +93,12 @@ func partitionListener(pc PartitionConsumer, errChan chan<- error, rawCollectd c
 	for {
 		select {
 		case msg := <-pc.Messages():
-			fmt.Println(1)
 			rawCollectd <- msg.Value
 		case msg := <-pc.Errors():
 			errChan <- errors.New(msg.Error())
-			fmt.Println("dead")
 			return
 		default:
-			fmt.Println("aaa")
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
-	fmt.Println("dead")
 }
