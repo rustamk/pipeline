@@ -24,13 +24,13 @@ const (
 
 // Creates a new decorator
 func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error) {
-	cache := make(map[string]map[string]string)
+	cache := make(map[string]map[string]interface{})
 	glog.Warning("Preheating cache with bullshit map.")
-	cache["93a1e476b36b"] = map[string]string{
+	cache["93a1e476b36b"] = map[string]interface{}{
 		"cluster":   "a",
 		"esxi_host": "10.22.222.2",
-		"docker":    "1",
-		"virtual":   "1",
+		"docker":    true,
+		"virtual":   true,
 		"arbuckle":  "david",
 	}
 	return &Decorator{
@@ -44,7 +44,7 @@ type Decorator struct {
 	inbound  chan []byte
 	outbound chan []byte
 
-	cache map[string]map[string]string
+	cache map[string]map[string]interface{}
 }
 
 // Returns a channel of decorated messages.
@@ -76,8 +76,11 @@ func (d *Decorator) parseCollectdPacket(b []byte) error {
 		return err
 	}
 
-	meta := map[string]string{}
+	var meta map[string]interface{}
 	for i, packet := range *packets {
+
+		//TODO:  this needs to be a pile of goroutines, not a synchronous operation?
+
 		// searching cache for host match.
 		// If not found, searching remote API.
 		if i == 0 {
@@ -98,17 +101,19 @@ func (d *Decorator) parseCollectdPacket(b []byte) error {
 // retrieves decoration string from the decorator's local cache.
 // Entries in the cache have a TTL of 5 minutes +- 150 seconds, after which the record
 // for the hostname will expire and the query will return an error.
-func (d *Decorator) GetHostData(hostname string) (map[string]string, error) {
+func (d *Decorator) GetHostData(hostname string) (map[string]interface{}, error) {
 	if match, ok := d.cache[hostname]; ok == false {
-		return map[string]string{}, errors.New("cache miss")
+		glog.Info("Cache miss.  Retrieving metadata from remote source")
+		return nil, errors.New("cache miss")
 	} else {
+		glog.Info("Cache hit.  Returning metadata.")
 		return match, nil
 	}
 }
 
 // Retrieves decoration string from a remote API.
-func (d *Decorator) GetRemoteHostData(hostname string) (map[string]string, error) {
-	return make(map[string]string), nil
+func (d *Decorator) GetRemoteHostData(hostname string) (map[string]interface{}, error) {
+	return make(map[string]interface{}), nil
 }
 
 func main() {
