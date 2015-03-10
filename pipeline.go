@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/golang/glog"
@@ -14,6 +17,7 @@ import (
 
 var _ = fmt.Println
 var kafkaHost []string = []string{"192.168.59.103:9092"}
+var decoratorHost string = "http://localhost:8000/api/site/13/servers/%s/dimensions"
 
 const (
 	clientId string = "collectd-decorator"
@@ -22,11 +26,45 @@ const (
 	decoratedTopic string = "test-decorated"
 )
 
+func main() {
+	flag.Set("logtostderr", "true")
+
+	config := sarama.NewConfig()
+	config.ClientID = clientId
+
+	client, err := sarama.NewClient(kafkaHost, config)
+	if err != nil {
+		panic(err)
+	}
+
+	cRaw := make(chan []byte)
+	cDecorated := make(chan []byte)
+
+	consumer, err := NewConsumer(rawTopic, cRaw, client)
+	if err != nil {
+		panic(err)
+	}
+
+	decorator, err := NewDecorator(consumer.Messages(), cDecorated)
+	if err != nil {
+		panic(err)
+	}
+
+	consumer.Start()
+	decorator.Start()
+
+	for {
+		time.Sleep(1 * time.Second)
+	}
+
+}
+
 // Creates a new decorator
 func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error) {
+
 	cache := make(map[string]map[string]interface{})
 	glog.Warning("Preheating cache with bullshit map.")
-	cache["93a1e476b36b"] = map[string]interface{}{
+	cache["xxx"] = map[string]interface{}{
 		"cluster":   "a",
 		"esxi_host": "10.22.222.2",
 		"docker":    true,
@@ -44,6 +82,7 @@ type Decorator struct {
 	inbound  chan []byte
 	outbound chan []byte
 
+	// TODO:  make the cache hold typed data with a configurable TTL
 	cache map[string]map[string]interface{}
 }
 
@@ -104,7 +143,7 @@ func (d *Decorator) parseCollectdPacket(b []byte) error {
 func (d *Decorator) GetHostData(hostname string) (map[string]interface{}, error) {
 	if match, ok := d.cache[hostname]; ok == false {
 		glog.Info("Cache miss.  Retrieving metadata from remote source")
-		return nil, errors.New("cache miss")
+		return d.GetRemoteHostData(hostname)
 	} else {
 		glog.Info("Cache hit.  Returning metadata.")
 		return match, nil
@@ -113,38 +152,37 @@ func (d *Decorator) GetHostData(hostname string) (map[string]interface{}, error)
 
 // Retrieves decoration string from a remote API.
 func (d *Decorator) GetRemoteHostData(hostname string) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
-}
-
-func main() {
-	flag.Set("logtostderr", "true")
-
-	config := sarama.NewConfig()
-	config.ClientID = clientId
-
-	client, err := sarama.NewClient(kafkaHost, config)
+	resp, err := http.Get(fmt.Sprintf(decoratorHost, hostname))
 	if err != nil {
-		panic(err)
+		glog.Error("Decorator HTTP request", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Validating HTTP response is good
+	if resp.StatusCode != 200 {
+		glog.Error("Decorator HTTP response", resp.StatusCode)
+		return nil, errors.New("Bad response from decorator")
 	}
 
-	cRaw := make(chan []byte)
-	cDecorated := make(chan []byte)
-
-	consumer, err := NewConsumer(rawTopic, cRaw, client)
+	// Reading the response body
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		glog.Error("Decorator response read", err)
+		return nil, err
 	}
 
-	decorator, err := NewDecorator(consumer.Messages(), cDecorated)
+	// Unmarshaling the response JSON into the output variable
+	decoration := map[string]interface{}{}
+	err = json.Unmarshal(body, &decoration)
 	if err != nil {
-		panic(err)
+		glog.Error("Decorator response unmarshal", err)
+		return nil, err
 	}
 
-	consumer.Start()
-	decorator.Start()
+	// Priming the cache for next iteration.
+	d.cache[hostname] = decoration
 
-	for {
-		time.Sleep(1 * time.Second)
-	}
-
+	glog.Info("Successfully retrieved data", decoration)
+	return decoration, nil
 }
