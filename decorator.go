@@ -40,6 +40,7 @@ func (d *Decorator) Messages() chan []byte {
 // Kicks off the decorator process.  Retrieves messages from the inbound queue, parses them,
 // decorates them, and pushes them into the outbound queue.
 func (d *Decorator) Start() {
+	go d.sucker()
 	for {
 		select {
 		case msg := <-d.inbound:
@@ -61,12 +62,32 @@ func (d *Decorator) Start() {
 	}
 }
 
+// test harness that reads off of the outbound queue.
+func (d *Decorator) sucker() {
+	for {
+		select {
+		case _ = <-d.outbound:
+		default:
+			time.Sleep(20 * time.Millisecond)
+
+		}
+	}
+}
+
 func (d *Decorator) send(packets [][]byte) {
 	glog.Infof("Received %d processed packets", len(packets))
+	l := len(packets)
+	sent, skipped := 1, 0
 	for _, packet := range packets {
-		_ = packet
-		//d.outbound <- packet
+		select {
+		case d.outbound <- packet:
+			sent++
+		default:
+			skipped++
+		}
 	}
+	glog.Infof("Sent %d/%d", sent, l)
+	glog.Infof("Skipped %d/%d", skipped, l)
 }
 
 type Packet map[string]interface{}
@@ -190,6 +211,9 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 // Entries in the cache have a TTL of 5 minutes +- 150 seconds, after which the record
 // for the hostname will expire and the query will return an error.
 func (d *Decorator) getHostData(hostname string) (Packet, error) {
+	if len(hostname) == 0 {
+		return Packet{}, errors.New("0-byte hostname provided")
+	}
 	//XXX Remove this piece
 	n := 100
 	glog.Infof("Randomization active for hostdata. %d random hosts.", n)

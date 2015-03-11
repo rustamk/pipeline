@@ -45,6 +45,40 @@ func TestDecoratorChokesOnBadHostname(t *testing.T) {
 	}
 }
 
+func TestDecoratorParsesCollectdPacket(t *testing.T) {
+	//TODO
+}
+
+func TestDecoratorGetRemoteHostData(t *testing.T) {
+	// TODO:  set the value of the decoratorHost constant as a field on Decorator
+}
+
+func TestDecoratorSendWritesToOutboundChan(t *testing.T) {
+	// TODO:  write packets into d.outbound
+}
+
+func TestDecoratorGetHostDimensions(t *testing.T) {
+	// TODO
+}
+
+func TestDecoratorSplitCollectdPacket(t *testing.T) {
+	// TODO
+
+}
+func TestDecoratorSplitCollectdPacketHandlesEmptyValue(t *testing.T) {
+	// TODO
+
+}
+
+func TestDecoratorSplitCollectdPacketHandlesMultipleValues(t *testing.T) {
+	// TODO
+
+}
+
+func TestPacketCopy(t *testing.T) {
+	// TODO
+}
+
 // TODO:  some more tests:
 // Decorator takes valid payload through inbound and to outbound channels
 // Decorator appends internal errors to a private field when decoration fails

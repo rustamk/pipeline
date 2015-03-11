@@ -30,8 +30,8 @@ func main() {
 		panic(err)
 	}
 
-	cRaw := make(chan []byte)
-	cDecorated := make(chan []byte)
+	cRaw := make(chan []byte, 100)
+	cDecorated := make(chan []byte, 100)
 
 	consumer, err := NewConsumer(rawTopic, cRaw, client)
 	if err != nil {
