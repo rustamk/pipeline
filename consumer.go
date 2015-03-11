@@ -14,9 +14,12 @@ var _ = fmt.Println
 
 // stub wrapper around sarama.Client
 type Client interface {
-	Partitions()
-	ConsumePartition()
-	GetOffset()
+	Partitions(string) ([]int32, error)
+	GetOffset(string, int32, sarama.OffsetTime) (int64, error)
+}
+
+type ClientConsumer interface {
+	ConsumePartition(string, int32, int64) (*sarama.PartitionConsumer, error)
 }
 
 // Wrapper around sarama.PartitionConsumer
@@ -28,7 +31,7 @@ type PartitionConsumer interface {
 }
 
 // Creates a new Consumer with the given topic and client.
-func NewConsumer(topic string, outboundChan chan []byte, client *sarama.Client) (*Consumer, error) {
+func NewConsumer(topic string, outboundChan chan []byte, client Client) (*Consumer, error) {
 	glog.Infof("Initializing new consumer for topic [%s]", topic)
 	errors := make(chan error)
 	var c *Consumer = &Consumer{
@@ -39,7 +42,7 @@ func NewConsumer(topic string, outboundChan chan []byte, client *sarama.Client) 
 	}
 
 	var err error
-	c.consumer, err = sarama.NewConsumerFromClient(client)
+	c.consumer, err = sarama.NewConsumerFromClient(client.(*sarama.Client))
 	return c, err
 }
 
@@ -50,10 +53,9 @@ type Consumer struct {
 
 	err    error
 	topic  string
-	client *sarama.Client
+	client Client
 
-	consumer          *sarama.Consumer
-	partitionConsumer *sarama.PartitionConsumer
+	consumer ClientConsumer
 }
 
 // Returns an unbuffered chan of errors through which errors can propagate.
@@ -87,9 +89,19 @@ func (c *Consumer) Start() {
 		glog.Infof("Initializing partition %d at offset %d", partition, sarama.LatestOffsets)
 		p := int32(partition)
 		offset, _ := c.client.GetOffset(c.topic, p, sarama.LatestOffsets)
-		partitionConsumer, _ := c.consumer.ConsumePartition(c.topic, p, offset)
-		go partitionListener(partitionConsumer, c.errors, c.outbound)
+		_ = c.createPartitionListener(p, offset, c.consumer)
+
 	}
+}
+
+func (c *Consumer) createPartitionListener(partitionId int32, offset int64, consumer ClientConsumer) error {
+	if pc, err := consumer.ConsumePartition(c.topic, partitionId, offset); err != nil {
+		return err
+	} else {
+		go partitionListener(pc, c.errors, c.outbound)
+		return nil
+	}
+
 }
 
 // Retrieves messages from the partition consumer's messages chan and publishes bytes through rawCollectd.
