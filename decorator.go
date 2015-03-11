@@ -86,6 +86,25 @@ func (p Packet) Copy() Packet {
 	return dst
 }
 
+// Given an array of collectd.Packet objects, extracts the hostname and returns
+// a Packet containing the dimensional data string for that hostname.
+func (d *Decorator) getHostDimensions(packets *[]gocollectd.Packet) Packet {
+	if len(*packets) == 0 {
+		return Packet{
+			"error": errors.New("Collectd packets empty"),
+		}
+	}
+
+	p := *packets
+	if meta, err := d.getHostData(p[0].Hostname); err == nil {
+		return meta
+	} else {
+		return Packet{
+			"error": err,
+		}
+	}
+}
+
 // Splits a collectd packet out into its constitutent messages.
 func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 	var packets *[]gocollectd.Packet
@@ -94,26 +113,18 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 		return [][]byte{}, err
 	}
 
-	var meta Packet
-	for i, packet := range *packets {
+	dimensions := d.getHostDimensions(packets)
+
+	for _, packet := range *packets {
 		fmt.Println("================================================================================")
 
 		//TODO:  this needs to be a pile of goroutines, not a synchronous operation?
 
 		// searching cache for host match.
 		// If not found, searching remote API.
-		if i == 0 {
-			if meta, err = d.GetHostData(packet.Hostname); err != nil {
-				if meta, err = d.GetRemoteHostData(packet.Hostname); err != nil {
-					meta["error"] = "error retrieving data"
-					continue
-				}
-			}
-		}
-
 		// Build map[string]interface{} of collectd information
-		glog.Infof("Retrieved metadata for %s: [%s]", packet.Hostname, meta)
-		collectd := meta.Copy()
+		glog.Infof("Retrieved metadata for %s: [%s]", packet.Hostname, dimensions)
+		collectd := dimensions.Copy()
 		collectd["hostname"] = packet.Hostname
 		collectd["timestamp"] = packet.TimeUnix()
 		collectd["plugin"] = packet.Plugin
@@ -148,7 +159,7 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 		//glog.Info(i, packet.Hostname, packet.Name(), packet.TimeUnix(), packet.Plugin, packet.PluginInstance,
 		//packet.Type, packet.TypeInstance, packet.ValueNames(), val)
 
-		// join the collectd information with the meta information and serialize to JSON, then to bytes..
+		// join the collectd information with the dimensions information and serialize to JSON, then to bytes..
 	}
 	return [][]byte{}, nil
 }
@@ -156,10 +167,10 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 // retrieves decoration string from the decorator's local cache.
 // Entries in the cache have a TTL of 5 minutes +- 150 seconds, after which the record
 // for the hostname will expire and the query will return an error.
-func (d *Decorator) GetHostData(hostname string) (Packet, error) {
+func (d *Decorator) getHostData(hostname string) (Packet, error) {
 	if match, ok := d.cache[hostname]; ok == false {
 		glog.Info("Cache miss.  Retrieving metadata from remote source")
-		return d.GetRemoteHostData(hostname)
+		return d.getRemoteHostData(hostname)
 	} else {
 		glog.Info("Cache hit.  Returning metadata.")
 		return match, nil
@@ -167,7 +178,7 @@ func (d *Decorator) GetHostData(hostname string) (Packet, error) {
 }
 
 // Retrieves decoration string from a remote API.
-func (d *Decorator) GetRemoteHostData(hostname string) (Packet, error) {
+func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
 	resp, err := http.Get(fmt.Sprintf(decoratorHost, hostname))
 	if err != nil {
 		glog.Error("Decorator HTTP request", err)
