@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -198,6 +199,12 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 // Entries in the cache have a TTL of 5 minutes +- 150 seconds, after which the record
 // for the hostname will expire and the query will return an error.
 func (d *Decorator) getHostData(hostname string) (Packet, error) {
+	//XXX Remove this piece
+	n := 100
+	glog.Errorf("Randomization active for hostdata. %d random hosts.", n)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	hostname = fmt.Sprintf("random_%d", r.Intn(n))
+	glog.Errorf("host: %s, cache size: %d", hostname, len(d.cache))
 	if match, ok := d.cache[hostname]; ok == false {
 		glog.Info("Cache miss.  Retrieving metadata from remote source")
 		return d.getRemoteHostData(hostname)
@@ -209,7 +216,8 @@ func (d *Decorator) getHostData(hostname string) (Packet, error) {
 
 // Retrieves decoration string from a remote API.
 func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
-	resp, err := http.Get(fmt.Sprintf(decoratorHost, hostname))
+	url := fmt.Sprintf(decoratorHost, hostname)
+	resp, err := http.Get(url)
 	if err != nil {
 		glog.Error("Decorator HTTP request", err)
 		return nil, err
