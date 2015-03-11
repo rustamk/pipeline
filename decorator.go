@@ -62,7 +62,6 @@ func (d *Decorator) Start() {
 	}
 }
 
-// test harness that reads off of the outbound queue.
 func (d *Decorator) sucker() {
 	for {
 		select {

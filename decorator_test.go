@@ -1,13 +1,20 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.comcast.com/viper-sde/gocollectd"
+)
+
+var _ = fmt.Println
 
 func _decoratorMaker() (*Decorator, error, chan []byte, chan []byte) {
-	a := make(chan []byte)
-	b := make(chan []byte)
+	inbound := make(chan []byte)
+	outbound := make(chan []byte)
 
-	d, err := NewDecorator(a, b)
-	return d, err, a, b
+	d, err := NewDecorator(inbound, outbound)
+	return d, err, inbound, outbound
 }
 
 func TestNewDecoratorPopulatesCache(t *testing.T) {
@@ -54,10 +61,22 @@ func TestDecoratorGetRemoteHostData(t *testing.T) {
 }
 
 func TestDecoratorSendWritesToOutboundChan(t *testing.T) {
+	d, _, _, outbound := _decoratorMaker()
+	_ = outbound
+
+	payload := [][]byte{}
+	d.send(payload)
 	// TODO:  write packets into d.outbound
 }
 
-func TestDecoratorGetHostDimensions(t *testing.T) {
+func TestDecoratorGetHostDimensionsHandlesEmptyPackets(t *testing.T) {
+	d, _, _, _ := _decoratorMaker()
+	p := []gocollectd.Packet{}
+
+	packet := d.getHostDimensions(&p)
+	if _, ok := packet["error"]; !ok {
+		t.Error("Expected Packet[errors] to be populated when empty collectd packets object sent.")
+	}
 	// TODO
 }
 
@@ -75,8 +94,24 @@ func TestDecoratorSplitCollectdPacketHandlesMultipleValues(t *testing.T) {
 
 }
 
+// Validates that the packet.Copy method returns a new copy of the key:value
+// data structure.
 func TestPacketCopy(t *testing.T) {
-	// TODO
+	src := Packet{
+		"arbuckle": "david",
+		"age":      19,
+	}
+	dst := src.Copy()
+
+	if dst["arbuckle"] != "david" || dst["age"] != 19 {
+		t.Fatal("Packet.Copy did not preserve values in copy operation.")
+	}
+
+	// Happy Birthday!
+	dst["age"] = 20
+	if src["age"] == 20 {
+		t.Error("Modification to dst Packet chaned value in src packet.")
+	}
 }
 
 // TODO:  some more tests:
