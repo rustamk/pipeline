@@ -16,16 +16,7 @@ import (
 
 // Creates a new decorator
 func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error) {
-
 	cache := make(map[string]Packet)
-	glog.Warning("Preheating cache with bullshit map.")
-	cache["xxx"] = Packet{
-		"cluster":   "a",
-		"esxi_host": "10.22.222.2",
-		"docker":    true,
-		"virtual":   true,
-		"arbuckle":  "david",
-	}
 	return &Decorator{
 		inbound:  inbound,
 		outbound: outbound,
@@ -201,10 +192,10 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 func (d *Decorator) getHostData(hostname string) (Packet, error) {
 	//XXX Remove this piece
 	n := 100
-	glog.Errorf("Randomization active for hostdata. %d random hosts.", n)
+	glog.Infof("Randomization active for hostdata. %d random hosts.", n)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	hostname = fmt.Sprintf("random_%d", r.Intn(n))
-	glog.Errorf("host: %s, cache size: %d", hostname, len(d.cache))
+	glog.Infof("host: %s, cache size: %d", hostname, len(d.cache))
 	if match, ok := d.cache[hostname]; ok == false {
 		glog.Info("Cache miss.  Retrieving metadata from remote source")
 		return d.getRemoteHostData(hostname)

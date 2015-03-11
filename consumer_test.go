@@ -31,6 +31,7 @@ func TestConsumerCreatePartitionListener(t *testing.T) {
 		client:   client,
 		topic:    "test",
 	}
+	_ = consumer
 
 	// this is bullshit
 	// So the story here is that I'm running into problems mocking the nested interface structure.

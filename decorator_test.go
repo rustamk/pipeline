@@ -1,8 +1,6 @@
 package main
 
-import (
-	"testing"
-)
+import "testing"
 
 func _decoratorMaker() (*Decorator, error, chan []byte, chan []byte) {
 	a := make(chan []byte)
@@ -28,10 +26,10 @@ func TestDecoratorGetsHostDataFromCache(t *testing.T) {
 	if d, err, _, _ = _decoratorMaker(); err != nil {
 		t.Fatal("unexpected error retrieving cached data", err)
 	}
-	d.cache["arbuckle"] = map[string]interface{}{
+	d.cache["arbuckle"] = Packet{
 		"testing_this": true,
 	}
-	if _, err := d.GetHostData("arbuckle"); err != nil {
+	if _, err := d.getHostData("arbuckle"); err != nil {
 		t.Fatal("unexpected error retrieving cached data", err)
 	}
 }
@@ -42,7 +40,7 @@ func TestDecoratorChokesOnBadHostname(t *testing.T) {
 	if d, err, _, _ = _decoratorMaker(); err != nil {
 		t.Fatal("unexpected error retrieving cached data", err)
 	}
-	if _, err := d.GetHostData(""); err == nil {
+	if _, err := d.getHostData(""); err == nil {
 		t.Error("Uncaught error when invalid hostname provided")
 	}
 }
