@@ -56,7 +56,8 @@ func (d *Decorator) Start() {
 				glog.Error(err)
 			} else {
 				// TODO:  this will leak memory if the decorator queue isn't being read.
-				go d.send(packets)
+				//go d.send(packets)
+				d.send(packets)
 			}
 			glog.Info("parseCollectdPacket completed in ", time.Now().Sub(a))
 
@@ -69,9 +70,10 @@ func (d *Decorator) Start() {
 }
 
 func (d *Decorator) send(packets [][]byte) {
+	glog.Infof("Received %d processed packets", len(packets))
 	for _, packet := range packets {
-		glog.Info("sending packet")
-		d.outbound <- packet
+		_ = packet
+		//d.outbound <- packet
 	}
 }
 
@@ -105,63 +107,91 @@ func (d *Decorator) getHostDimensions(packets *[]gocollectd.Packet) Packet {
 	}
 }
 
+// Takes a collectd packet and outputs one or more fully-formed Packet
+// objects, depending on the count of values within the source packet.
+func (d *Decorator) splitCollectdPacket(dimensions Packet, packet gocollectd.Packet) (*[]Packet, error) {
+	valueCount := packet.ValueCount()
+	if valueCount <= 0 {
+		return &[]Packet{}, errors.New("No values present in collectd packet.")
+	}
+
+	// Building base packet.  This is the information that is common to each packet.
+	collectd := dimensions.Copy()
+	collectd["hostname"] = packet.Hostname
+	collectd["timestamp"] = packet.TimeUnix()
+	collectd["plugin"] = packet.Plugin
+	collectd["plugin_instance"] = packet.PluginInstance
+	collectd["type"] = packet.Type
+	collectd["type_instance"] = packet.TypeInstance
+	collectd["name"] = packet.Name()
+
+	// Packets can have >1 value - for instance, load average (1,5,15), network (tx,rx)
+	// In these cases, we split the packet into multiple packets and return both.
+	packets := make([]Packet, valueCount)
+	valueNames := packet.ValueNames()
+	values := packet.Values()
+	for i := 0; i < valueCount; i++ {
+		var num gocollectd.Number
+		var err error
+		if num, err = values[i].Number(); err != nil {
+			glog.Error(err)
+			packets[i] = Packet{"error": err}
+			continue
+		}
+		p := collectd.Copy()
+		p["metric"] = valueNames[i]
+		p["value"] = num.Float64()
+		p["series_type"] = num.CollectdType()
+		packets[i] = p
+	}
+	return &packets, nil
+}
+
 // Splits a collectd packet out into its constitutent messages.
 func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
+
 	var packets *[]gocollectd.Packet
 	var err error
 	if packets, err = gocollectd.Parse(b); err != nil {
 		return [][]byte{}, err
 	}
 
+	// Retrieving dimensions from either of the local cache, or the remote host.
+	// These are returned in the form of a Packet struct.  If the Packet has an
+	// "error" key, this indicates that we were unable to retrieve metadata.
+	// This shouldn't stop continued processing of the data.
 	dimensions := d.getHostDimensions(packets)
-
-	for _, packet := range *packets {
-		fmt.Println("================================================================================")
-
-		//TODO:  this needs to be a pile of goroutines, not a synchronous operation?
-
-		// searching cache for host match.
-		// If not found, searching remote API.
-		// Build map[string]interface{} of collectd information
-		glog.Infof("Retrieved metadata for %s: [%s]", packet.Hostname, dimensions)
-		collectd := dimensions.Copy()
-		collectd["hostname"] = packet.Hostname
-		collectd["timestamp"] = packet.TimeUnix()
-		collectd["plugin"] = packet.Plugin
-		collectd["plugin_instance"] = packet.PluginInstance
-		collectd["type"] = packet.Type
-		collectd["type_instance"] = packet.TypeInstance
-		collectd["name"] = packet.Name()
-
-		fmt.Println("printing initial collectd packet")
-		n, _ := json.Marshal(collectd)
-		fmt.Println(string(n))
-
-		valueNames := packet.ValueNames()
-		for i, val := range packet.Values() {
-			fmt.Println("Printing ", i)
-			var num gocollectd.Number
-			var err error
-			if num, err = val.Number(); err != nil {
-				glog.Error(err)
-				continue
-			}
-			collectd2 := collectd.Copy()
-			collectd2["metric"] = valueNames[i]
-			collectd2["value"] = num.Float64()
-			collectd2["series_type"] = num.CollectdType()
-			n, err := json.Marshal(collectd2)
-			fmt.Println(string(n))
-		}
-		n, _ = json.Marshal(collectd)
-		fmt.Println(string(n))
-		//val, _ := packet.Values()[0].Number()
-		//glog.Info(i, packet.Hostname, packet.Name(), packet.TimeUnix(), packet.Plugin, packet.PluginInstance,
-		//packet.Type, packet.TypeInstance, packet.ValueNames(), val)
-
-		// join the collectd information with the dimensions information and serialize to JSON, then to bytes..
+	if err, ok := dimensions["error"]; ok {
+		glog.Error("Error attempting to retrieve dimensions ", err)
+	} else {
+		glog.Infof("Retrieved metadata ")
 	}
-	return [][]byte{}, nil
+
+	// Since packets can contain multiple values, we walk the packets array
+	// prior to processing in order to retrieve a complete packetCount for use
+	// in output array allocation.
+	packetCount := 0
+	for _, packet := range *packets {
+		packetCount += packet.ValueCount()
+	}
+
+	// Walking the collectd packets, appending metadata, serializing, and
+	// depositing into output context.
+	i := 0
+	output := make([][]byte, packetCount)
+	for _, packet := range *packets {
+		packets, _ := d.splitCollectdPacket(dimensions, packet)
+		for _, packet := range *packets {
+			packetBytes, err := json.Marshal(packet)
+			if err != nil {
+				glog.Error(err)
+				i += 1
+			}
+			output[i] = packetBytes
+			i += 1
+		}
+	}
+	return output, nil
 }
 
 // retrieves decoration string from the decorator's local cache.
