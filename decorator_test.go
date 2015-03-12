@@ -9,6 +9,40 @@ import (
 
 var _ = fmt.Println
 
+type PacketStub struct {
+	Bytes       []byte
+	DataTypes   []uint8
+	Metric      string
+	Expectation int
+}
+
+var packetTests []PacketStub = []PacketStub{
+	PacketStub{
+		Bytes:       []byte{66, 17, 163, 99, 64, 0, 0, 0},
+		DataTypes:   []uint8{1},
+		Metric:      "df_etc-hostname_used",
+		Expectation: 1,
+	},
+	PacketStub{
+		Bytes:       []byte{0, 0, 0, 0, 0, 2, 153, 189, 0, 0, 0, 0, 0, 2, 153, 189},
+		DataTypes:   []uint8{2, 2},
+		Metric:      "if_packets_lo",
+		Expectation: 2,
+	},
+	PacketStub{
+		Bytes:       []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		DataTypes:   []uint8{2, 2},
+		Metric:      "if_errors_lo",
+		Expectation: 2,
+	},
+	PacketStub{
+		Bytes:       []byte{0, 0, 0, 0, 0, 0, 0, 0},
+		DataTypes:   []uint8{1},
+		Metric:      "df_etc-hosts_free",
+		Expectation: 1,
+	},
+}
+
 func _decoratorMaker() (*Decorator, error, chan []byte, chan []byte) {
 	inbound := make(chan []byte)
 	outbound := make(chan []byte)
@@ -52,8 +86,14 @@ func TestDecoratorChokesOnBadHostname(t *testing.T) {
 	}
 }
 
-func TestDecoratorParsesCollectdPacket(t *testing.T) {
-	//TODO
+func TestDecoratorReturnsErrorOnBadPacket(t *testing.T) {
+	d := &Decorator{}
+	packet := []byte("This message is invalid.")
+
+	_, err := d.parseCollectdPacket(packet)
+	if err == nil {
+		t.Error("Expected breaking error when bad packet sent.")
+	}
 }
 
 func TestDecoratorGetRemoteHostData(t *testing.T) {
@@ -81,16 +121,40 @@ func TestDecoratorGetHostDimensionsHandlesEmptyPackets(t *testing.T) {
 }
 
 func TestDecoratorSplitCollectdPacket(t *testing.T) {
-	// TODO
+	d := &Decorator{}
+	dimensions := Packet{
+		"one": 1,
+		"two": 2,
+	}
+	packet := gocollectd.Packet{}
 
-}
-func TestDecoratorSplitCollectdPacketHandlesEmptyValue(t *testing.T) {
-	// TODO
+	_, err := d.splitCollectdPacket(dimensions, packet)
+	if err == nil {
+		t.Fatal("Expected error when empty gocollectd.Packet passed to split function.  Saw nil.")
+	}
 
-}
+	for _, test := range packetTests {
+		packet = gocollectd.Packet{
+			Hostname:       "hostname",
+			Plugin:         "plugin",
+			PluginInstance: "pluginInstance",
+			Type:           "type",
+			TypeInstance:   "typeInstance",
 
-func TestDecoratorSplitCollectdPacketHandlesMultipleValues(t *testing.T) {
-	// TODO
+			CdTime:     uint64(8888888888888888),
+			CdInterval: uint64(1000),
+
+			DataTypes: test.DataTypes,
+			Bytes:     test.Bytes,
+		}
+		b, err := d.splitCollectdPacket(dimensions, packet)
+		if err != nil {
+			t.Fatal("Unexpected error when empty gocollectd.Packet passed to split function.  Saw ", err)
+		}
+		if len(*b) != test.Expectation {
+			t.Fatalf("Expected %d packets returned.  Saw %d.", test.Expectation, len(*b))
+		}
+	}
 
 }
 
