@@ -40,7 +40,10 @@ func (d *Decorator) Messages() chan []byte {
 // Kicks off the decorator process.  Retrieves messages from the inbound queue, parses them,
 // decorates them, and pushes them into the outbound queue.
 func (d *Decorator) Start() {
-	go d.sucker()
+	go d.readInbound()
+}
+
+func (d *Decorator) readInbound() {
 	for {
 		select {
 		case msg := <-d.inbound:
@@ -60,6 +63,7 @@ func (d *Decorator) Start() {
 			time.Sleep(sleep)
 		}
 	}
+
 }
 
 func (d *Decorator) sucker() {
@@ -81,10 +85,9 @@ func (d *Decorator) send(packets [][]byte) {
 		select {
 		case d.outbound <- packet:
 			sent++
-		default:
-			skipped++
 		}
 	}
+	glog.Info(len(d.outbound), " slots in outbound queue.")
 	glog.Infof("Sent %d/%d", sent, l)
 	glog.Infof("Skipped %d/%d", skipped, l)
 }
@@ -214,7 +217,7 @@ func (d *Decorator) getHostData(hostname string) (Packet, error) {
 		return Packet{}, errors.New("0-byte hostname provided")
 	}
 	//XXX Remove this piece
-	n := 100
+	n := 10
 	glog.Infof("Randomization active for hostdata. %d random hosts.", n)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	hostname = fmt.Sprintf("random_%d", r.Intn(n))

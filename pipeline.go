@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
 	"github.comcast.com/viper-sde/sarama"
 )
 
@@ -30,8 +31,8 @@ func main() {
 		panic(err)
 	}
 
-	cRaw := make(chan []byte, 100)
-	cDecorated := make(chan []byte, 100)
+	cRaw := make(chan []byte, 1000)
+	cDecorated := make(chan []byte, 1000)
 
 	consumer, err := NewConsumer(rawTopic, cRaw, client)
 	if err != nil {
@@ -43,10 +44,18 @@ func main() {
 		panic(err)
 	}
 
+	producer, err := NewProducer(decoratedTopic, decorator.Messages(), client)
+	if err != nil {
+		panic(err)
+	}
+
 	consumer.Start()
 	decorator.Start()
+	producer.Start()
 
+	start := time.Now()
 	for {
+		glog.Infof("Running %v", time.Now().Sub(start))
 		time.Sleep(1 * time.Second)
 	}
 
