@@ -8,11 +8,11 @@ import (
 	"github.comcast.com/viper-sde/sarama"
 )
 
-func NewProducer(decoratedTopic string, inbound chan []byte, client Client) (*Producer, error) {
+func NewProducer(config *Config, inbound chan []byte, client Client) (*Producer, error) {
 	fmt.Println("Creating New Producer")
 	p := &Producer{
 		inbound: inbound,
-		topic:   decoratedTopic,
+		topic:   config.Kafka.DecoratedTopic,
 		errors:  make(chan error),
 	}
 	var err error

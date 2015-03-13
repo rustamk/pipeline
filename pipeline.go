@@ -10,41 +10,34 @@ import (
 )
 
 var _ = fmt.Println
-var kafkaHost []string = []string{"192.168.59.103:9092"}
-var decoratorHost string = "http://localhost:8000/api/site/13/servers/%s/dimensions"
-
-const (
-	clientId string = "collectd-decorator"
-	//groupId        string = "collectd-decorator"
-	rawTopic       string = "test"
-	decoratedTopic string = "test-decorated"
-)
 
 func main() {
 	flag.Set("logtostderr", "true")
 
-	config := sarama.NewConfig()
-	config.ClientID = clientId
+	config := GetConfig()
 
-	client, err := sarama.NewClient(kafkaHost, config)
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.ClientID = config.Kafka.ClientId
+
+	client, err := sarama.NewClient(config.Kafka.Servers, saramaConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	cRaw := make(chan []byte, 1000)
-	cDecorated := make(chan []byte, 1000)
+	cRaw := make(chan []byte, config.ChannelSize)
+	cDecorated := make(chan []byte, config.ChannelSize)
 
-	consumer, err := NewConsumer(rawTopic, cRaw, client)
+	consumer, err := NewConsumer(config, cRaw, client)
 	if err != nil {
 		panic(err)
 	}
 
-	decorator, err := NewDecorator(consumer.Messages(), cDecorated)
+	decorator, err := NewDecorator(config, consumer.Messages(), cDecorated)
 	if err != nil {
 		panic(err)
 	}
 
-	producer, err := NewProducer(decoratedTopic, decorator.Messages(), client)
+	producer, err := NewProducer(config, decorator.Messages(), client)
 	if err != nil {
 		panic(err)
 	}

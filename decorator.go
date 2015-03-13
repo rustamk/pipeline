@@ -15,9 +15,10 @@ import (
 )
 
 // Creates a new decorator
-func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error) {
+func NewDecorator(config *Config, inbound chan []byte, outbound chan []byte) (*Decorator, error) {
 	cache := make(map[string]Packet)
 	return &Decorator{
+		config:   config,
 		inbound:  inbound,
 		outbound: outbound,
 		cache:    cache,
@@ -25,6 +26,8 @@ func NewDecorator(inbound chan []byte, outbound chan []byte) (*Decorator, error)
 }
 
 type Decorator struct {
+	config *Config
+
 	inbound  chan []byte
 	outbound chan []byte
 
@@ -233,7 +236,7 @@ func (d *Decorator) getHostData(hostname string) (Packet, error) {
 
 // Retrieves decoration string from a remote API.
 func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
-	url := fmt.Sprintf(decoratorHost, hostname)
+	url := fmt.Sprintf(d.config.Decorator.GetHostString(), hostname)
 	resp, err := http.Get(url)
 	if err != nil {
 		glog.Error("Decorator HTTP request", err)

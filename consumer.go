@@ -31,14 +31,14 @@ type PartitionConsumer interface {
 }
 
 // Creates a new Consumer with the given topic and client.
-func NewConsumer(topic string, outboundChan chan []byte, client Client) (*Consumer, error) {
-	glog.Infof("Initializing new consumer for topic [%s]", topic)
+func NewConsumer(config *Config, outboundChan chan []byte, client Client) (*Consumer, error) {
+	glog.Infof("Initializing new consumer for topic [%s]", config.Kafka.RawTopic)
 	errors := make(chan error)
 	var c *Consumer = &Consumer{
 		errors:   errors,
 		outbound: outboundChan,
 		client:   client,
-		topic:    topic,
+		topic:    config.Kafka.RawTopic,
 	}
 
 	var err error
