@@ -100,6 +100,6 @@ func (d *decoratorConfig) GetHostString() string {
 }
 
 type qaConfig struct {
-	Port               int
-	DestinationAddress string
+	Enabled     bool
+	ServerCount int `toml:"server_count"`
 }

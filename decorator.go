@@ -219,11 +219,15 @@ func (d *Decorator) getHostData(hostname string) (Packet, error) {
 	if len(hostname) == 0 {
 		return Packet{}, errors.New("0-byte hostname provided")
 	}
-	//XXX Remove this piece
-	n := 10
-	glog.Infof("Randomization active for hostdata. %d random hosts.", n)
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	hostname = fmt.Sprintf("random_%d", r.Intn(n))
+
+	// QA Component - This piece returns a randomized server name
+	// for each request, using ServerCount as a direction.
+	if d.config.QA.Enabled {
+		glog.Infof("Randomization active for hostdata. %d random hosts.", d.config.QA.ServerCount)
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		hostname = fmt.Sprintf("random_%d", r.Intn(d.config.QA.ServerCount))
+	}
+
 	glog.Infof("host: %s, cache size: %d", hostname, len(d.cache))
 	if match, ok := d.cache[hostname]; ok == false {
 		glog.Info("Cache miss.  Retrieving metadata from remote source")

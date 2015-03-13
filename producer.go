@@ -11,6 +11,7 @@ import (
 func NewProducer(config *Config, inbound chan []byte, client Client) (*Producer, error) {
 	fmt.Println("Creating New Producer")
 	p := &Producer{
+		config:  config,
 		inbound: inbound,
 		topic:   config.Kafka.DecoratedTopic,
 		errors:  make(chan error),
@@ -21,6 +22,8 @@ func NewProducer(config *Config, inbound chan []byte, client Client) (*Producer,
 }
 
 type Producer struct {
+	config *Config
+
 	inbound chan []byte
 	errors  chan error
 
@@ -46,8 +49,6 @@ func (p *Producer) readInbound() {
 				Topic: p.topic,
 				Value: sarama.ByteEncoder(msg),
 			}
-			//default:
-			//		time.Sleep(5 * time.Millisecond)
 		}
 	}
 

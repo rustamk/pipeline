@@ -15,6 +15,9 @@ func main() {
 	flag.Set("logtostderr", "true")
 
 	config := GetConfig()
+	fmt.Println(config.Kafka)
+	fmt.Println(config.Decorator)
+	fmt.Println(config.QA)
 
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.ClientID = config.Kafka.ClientId

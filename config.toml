@@ -14,3 +14,6 @@ site_id = 13
 max_retries = 1
 timeout_ms = 100
 
+[qa]
+enabled = true
+server_count = 20

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"time"
 
 	"github.com/golang/glog"
@@ -35,6 +36,7 @@ func NewConsumer(config *Config, outboundChan chan []byte, client Client) (*Cons
 	glog.Infof("Initializing new consumer for topic [%s]", config.Kafka.RawTopic)
 	errors := make(chan error)
 	var c *Consumer = &Consumer{
+		config:   config,
 		errors:   errors,
 		outbound: outboundChan,
 		client:   client,
@@ -42,12 +44,14 @@ func NewConsumer(config *Config, outboundChan chan []byte, client Client) (*Cons
 	}
 
 	var err error
-	c.consumer, err = sarama.NewConsumerFromClient(client.(*sarama.Client))
+	c.consumer, err = sarama.NewConsumerFromClient(c.client.(*sarama.Client))
 	return c, err
 }
 
 // Consumer establishes a connection to Kafka and reads messages off of the queue, pushing them into Messages
 type Consumer struct {
+	config *Config
+
 	errors   chan error
 	outbound chan []byte
 
@@ -73,6 +77,10 @@ func (c *Consumer) Messages() chan []byte {
 // and keep a record of all of the partitionConsumers that are running at any given time,
 // so that dead consumers can be restarted, and so that new partitions can be added.
 func (c *Consumer) Start() {
+	c.startKafkaListener()
+}
+
+func (c *Consumer) startKafkaListener() {
 
 	// Determine the number of Kafka partitions we need to read from.
 	partitions, err := c.client.Partitions(c.topic)
@@ -98,7 +106,7 @@ func (c *Consumer) createPartitionListener(partitionId int32, offset int64, cons
 	if pc, err := consumer.ConsumePartition(c.topic, partitionId, offset); err != nil {
 		return err
 	} else {
-		go partitionListener(pc, c.errors, c.outbound)
+		go c.partitionListener(pc, c.errors, c.outbound)
 		return nil
 	}
 
@@ -106,7 +114,7 @@ func (c *Consumer) createPartitionListener(partitionId int32, offset int64, cons
 
 // Retrieves messages from the partition consumer's messages chan and publishes bytes through rawCollectd.
 // On error, propagates the error to the creator via the errors channel.
-func partitionListener(pc PartitionConsumer, errChan chan<- error, rawCollectd chan<- []byte) {
+func (c *Consumer) partitionListener(pc PartitionConsumer, errChan chan<- error, rawCollectd chan<- []byte) {
 	for {
 		select {
 		case msg := <-pc.Messages():
