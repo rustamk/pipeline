@@ -9,6 +9,9 @@ import (
 // TestProcessing will call the DataCollection function to run a full plexus data process loop - using mock data written below in the test case
 // The expected
 func TestProcessing(t *testing.T) {
+    Initialize()
+    defer Destroy()
+
     setUpTestData()
     rowsProcessed := DataCollection()
     if rowsProcessed != 5 {

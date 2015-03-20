@@ -11,6 +11,8 @@ import (
     "github.com/Shopify/sarama"
     "os"
     "encoding/json"
+    "regexp"
+
 )
 
 // ServerMetric stores 1 time series metric line from collectd.  All strings intentional - they're being sent to ingest services over http
@@ -23,21 +25,34 @@ type ServerMetric struct {
 }
 const MIN_EPOCH_TIME_LENGTH = 14
 const TIME_THRESHOLD = 50.0
-const BATCH_SIZE = 10000
-const MAX_BYTES_TO_LOAD int64 = 5000
+const BATCH_SIZE = 1500
+const MAX_BYTES_TO_LOAD int64 = 1250
 const DATA_DIR = "/var/lib/collectd"
+const LOG_FILE_NAME = "/var/log/plexus_processing.log"
 const PROCESSING_FILE_NAME = "load_info.txt"
 const CLIENT_ID string = "plexus-collectd"
 const KAFKA_TOPIC string = "sde-collectd"
 var KAFKA_BROKERS = []string{"172.30.18.139:9092","172.30.18.140:9092"}
+var logFile *os.File
 
 // This process is started from the command line main method.  Runs in an endless loop processing data deltas on the plexus server and sending to ingest
 func main() {
-    runtime.GOMAXPROCS(2)
+    Initialize()
+    defer Destroy()
+
     for 1==1 {
         DataCollection()
-        time.Sleep(time.Second * 5)
+        time.Sleep(time.Millisecond * 500)
     }
+}
+
+func Initialize() {
+    logFile,_ = os.Create(LOG_FILE_NAME)
+    runtime.GOMAXPROCS(2)
+}
+
+func Destroy() {
+    logFile.Close()
 }
 
 func DataCollection() int {
@@ -58,6 +73,7 @@ func DataCollection() int {
     processMap := make(map[string]ServerMetric)
 
     rowsProcessed := 0
+
 
     // walk the entire data collection directory looking for all files
     filepath.Walk(DATA_DIR, func(path string, info os.FileInfo, err error) error {
@@ -113,9 +129,9 @@ func getPreviouslyLoadedDataMap() map[string]int64 {
 func processFile(path string, info os.FileInfo, loadedServerMap map[string]int64, processMap map[string]ServerMetric, processingFile *os.File) int {
     now := time.Now()
     hoursSinceUpdate := now.Sub(info.ModTime()).Hours()
+    reg1, _ := regexp.Compile("epoch")
 
     rowsProcessed := 0
-
     if (hoursSinceUpdate < TIME_THRESHOLD) {
         values := strings.Split(path, "/")
         // directory structure is <server-name>/<collection-name>/<metric-name>
@@ -125,8 +141,10 @@ func processFile(path string, info os.FileInfo, loadedServerMap map[string]int64
         key := server +"|" +collection +"|" +metric
         var maxByteLoaded int64 = loadedServerMap[key]
 
+
         // compare current size to number of bytes already processed.  If size() is greater we have data to process
         if info.Size() > maxByteLoaded {
+
             // open the data file with the collectd metrics
             lfile, _ := os.Open(path)
 
@@ -138,28 +156,37 @@ func processFile(path string, info os.FileInfo, loadedServerMap map[string]int64
 
             // seek file forward past the point where the previous load stopped
             arr := make([]byte, bytesDifference)
-            lfile.Seek(maxByteLoaded +1, 0)
+            lfile.Seek(maxByteLoaded, 0)
             lfile.Read(arr)
             // split file into array of strings - 1 per file line
             rows := strings.Split(string(arr), "\n")
+
             for i := 0; i<len(rows); i+=1 {
                 row := rows[i]
                 // file is ',' delimited time,value
                 columns := strings.Split(row, ",")
-                if len(columns) == 2 {
+                if len(columns) > 1 {
                     time := columns[0]
                     value := columns[1]
 
-                    // only load data that looks property formatted - with a timestamp length that is appropriate (don't try to send partial lines)
-                    if len(time) >= MIN_EPOCH_TIME_LENGTH {
-                        metric := ServerMetric{Host: server, Collection: collection, Metric: metric, Time: time, Value: value}
-                        processMap[string(len(processMap))] = metric
-                        rowsProcessed += 1
 
-                        // batch results that we'll push to data ingest
-                        if (len(processMap) >= BATCH_SIZE) {
-                            sendAllData(processMap)
-                        }
+
+                    // only load data that looks property formatted - with a timestamp length that is appropriate (don't try to send partial lines)
+                    if !(reg1.MatchString(time)) {
+                         if (len(time) >= MIN_EPOCH_TIME_LENGTH) {
+                            metricObj := ServerMetric{Host: server, Collection: collection, Metric: metric, Time: time, Value: value}
+                            processMap[string(len(processMap))] = metricObj
+                            rowsProcessed += 1
+
+                            // batch results that we'll push to data ingest
+                            if (len(processMap) >= BATCH_SIZE) {
+                                fmt.Println("send large batch")
+                                sendAllData(processMap)
+                            }
+                        } else {
+                             //fmt.Println("epoch time too short", time, server, collection, metric)
+                             fmt.Println("epoch time too short", row)
+                         }
                     }
                 }
             }
@@ -173,12 +200,16 @@ func processFile(path string, info os.FileInfo, loadedServerMap map[string]int64
     return rowsProcessed
 }
 
+
+
 func sendAllData(processMap map[string]ServerMetric) {
-    fmt.Println("sendAllData")
+    log(fmt.Sprintf("PROCESS_DATA_SIZE:%d", len(processMap)))
+    fmt.Println(fmt.Sprintf("SEND_DATA_SIZE:%d", len(processMap)))
     //sendDataToGoServer(processMap)
     sendDataToKafka(processMap)
-    processMap = nil
-    processMap = make(map[string]ServerMetric)
+    for key,_ := range processMap {
+        delete(processMap, key)
+    }
 }
 
 // Send list of server metrics to go server (temporary ingest proof of concept)
@@ -200,7 +231,14 @@ func sendAllData(processMap map[string]ServerMetric) {
 
 // Send list of server metrics to kafka broker
 func sendDataToKafka(mapIn map[string]ServerMetric) {
-    fmt.Println(time.Now(), "sendDataToKafka")
+    fmt.Println(time.Now(), "send data to Kafka")
+    // Handle any panics inside this function - do not send panics up here
+    defer func() {
+        if e := recover(); e != nil {
+            fmt.Println("ERROR: Kafka general failure", e)
+            log("ERROR: Kafka general failure")
+        }
+    }()
 
     // create a list from the map object passed in
     objectList := make([]ServerMetric, len(mapIn))
@@ -211,20 +249,42 @@ func sendDataToKafka(mapIn map[string]ServerMetric) {
     }
 
     resultsMap := map[string][]ServerMetric{"MetricList": objectList}
-    jsonbytes,_ := json.Marshal(resultsMap)
+    jsonbytes,err := json.Marshal(resultsMap)
+    if err != nil {
+        fmt.Println(time.Now(), "ERROR on json marshal", err)
+        log("ERROR on json marshal")
+    }
 
+    // Create the Kafka client
     clientConfig := sarama.NewClientConfig()
-    client,_ := sarama.NewClient(CLIENT_ID, KAFKA_BROKERS, clientConfig)
+    client,err := sarama.NewClient(CLIENT_ID, KAFKA_BROKERS, clientConfig)
+    if err != nil {
+        fmt.Println("ERROR: Kafka failed to create client", err)
+        log("ERROR: Kafka failed to create client")
+    }
     defer client.Close()
 
+    // Create the Kafka producer
     producerConfig := sarama.NewProducerConfig()
-    producer,_ := sarama.NewProducer(client, producerConfig)
+    producer,err := sarama.NewProducer(client, producerConfig)
+    if err != nil {
+        fmt.Println("ERROR: Kafka failed to create producer", err)
+        log("ERROR: Kafka failed to create producer")
+    }
     defer producer.Close()
 
+    // Send message to Kafka
     msg := &sarama.ProducerMessage{
         Topic: KAFKA_TOPIC,
         Key:   sarama.ByteEncoder([]byte("xxx")),
         Value: sarama.ByteEncoder([]byte(string(jsonbytes))),
     }
     producer.Input() <- msg
+    log(fmt.Sprintf("KAFKA_DATA_SIZE:%d", len(mapIn)))
+    fmt.Println(time.Now(), "FINISHED LOAD KAFKA")
+}
+
+func log(message string) {
+    str := fmt.Sprintf("%s - %s\n", time.Now(), message)
+    logFile.WriteString(str)
 }
