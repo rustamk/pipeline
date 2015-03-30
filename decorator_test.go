@@ -10,10 +10,11 @@ import (
 var _ = fmt.Println
 
 type PacketStub struct {
-	Bytes       []byte
-	DataTypes   []uint8
-	Metric      string
-	Expectation int
+	Bytes           []byte
+	DataTypes       []uint8
+	Metric          string
+	Expectation     int
+	ExpectationFunc func(Packet) bool
 }
 
 var packetTests []PacketStub = []PacketStub{
@@ -43,11 +44,25 @@ var packetTests []PacketStub = []PacketStub{
 	},
 }
 
+var NaNPacket PacketStub = PacketStub{
+	Bytes:     []byte{127, 248, 0, 0, 0, 0, 0, 0},
+	DataTypes: []uint8{1},
+	Metric:    "",
+	ExpectationFunc: func(p Packet) bool {
+		// Expects p[error] to return NaN error.
+		if _, err := p["error"]; err {
+			return true
+		}
+		return false
+	},
+}
+
 func _decoratorMaker() (*Decorator, error, chan []byte, chan []byte) {
 	inbound := make(chan []byte)
 	outbound := make(chan []byte)
+	config := GetConfig()
 
-	d, err := NewDecorator(inbound, outbound)
+	d, err := NewDecorator(config, inbound, outbound)
 	return d, err, inbound, outbound
 }
 
@@ -155,7 +170,38 @@ func TestDecoratorSplitCollectdPacket(t *testing.T) {
 			t.Fatalf("Expected %d packets returned.  Saw %d.", test.Expectation, len(*b))
 		}
 	}
+}
 
+func TestDecoratorSplitCollectdPacketPopulatesNaNOnError(t *testing.T) {
+	d := &Decorator{}
+	dimensions := Packet{
+		"one": 1,
+		"two": 2,
+	}
+	packet := gocollectd.Packet{
+		Hostname:       "hostname",
+		Plugin:         "plugin",
+		PluginInstance: "pluginInstance",
+		Type:           "type",
+		TypeInstance:   "typeInstance",
+
+		CdTime:     uint64(8888888888888888),
+		CdInterval: uint64(1000),
+
+		DataTypes: NaNPacket.DataTypes,
+		Bytes:     NaNPacket.Bytes,
+	}
+	b, err := d.splitCollectdPacket(dimensions, packet)
+	p := *b
+	if err != nil {
+		t.Fatal("Unexpected error parsing collectd packet.  Saw ", err)
+	}
+	if len(p) != 1 {
+		t.Fatal("Expected NaNPacket to return only one value after split.")
+	}
+	if _, err := p[0]["error"]; !err {
+		t.Error("Expected error to be populated in splitCollectdPacket output.")
+	}
 }
 
 // Validates that the packet.Copy method returns a new copy of the key:value
