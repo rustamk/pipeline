@@ -3,14 +3,14 @@ channel_size = 2000
 [kafka]
 client_id = "decorator-client"
 group_id = "decorator-group"
-raw_topic_name = "arbuckle"
-decorated_topic_name = "arbuckle-decorated"
+raw_topic_name = "test"
+decorated_topic_name = "test-decorated"
 servers = [ "sde-kafka-01.bdn.lab.xcal.tv:9092","sde-kafka-02.bdn.lab.xcal.tv:9092" ]
 
 
 [decorator]
 # http://<hostname>/api/site/<site_id>/servers/<hostname>/dimensions
-hostname = "localhost:8000"
+hostname = "lputility.bdn.lab.xcal.tv"
 site_id = 13
 
 # not used:
@@ -18,5 +18,5 @@ max_retries = 1
 timeout_ms = 100
 
 [qa]
-enabled = true
+enabled = false
 server_count = 50

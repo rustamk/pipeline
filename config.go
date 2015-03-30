@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/golang/glog"
 	"github.comcast.com/gomirror/toml"
 )
 
@@ -18,7 +19,11 @@ func init() {
 }
 
 func getConfigFilename() string {
-	flag.Set("config", "config.toml")
+	flag.Parse()
+	if filename == "" {
+		flag.Set("config", "config.toml")
+	}
+	glog.Info("Loading configuration from ", filename)
 	return filename
 }
 

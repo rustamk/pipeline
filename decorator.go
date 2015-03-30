@@ -54,8 +54,6 @@ func (d *Decorator) readInbound() {
 			if packets, err := d.parseCollectdPacket(msg); err != nil {
 				glog.Error(err)
 			} else {
-				// TODO:  this will leak memory if the decorator queue isn't being read.
-				//go d.send(packets)
 				d.send(packets)
 			}
 			glog.Info("parseCollectdPacket completed in ", time.Now().Sub(a))
@@ -69,19 +67,9 @@ func (d *Decorator) readInbound() {
 
 }
 
-func (d *Decorator) sucker() {
-	for {
-		select {
-		case _ = <-d.outbound:
-		default:
-			time.Sleep(20 * time.Millisecond)
-
-		}
-	}
-}
-
 func (d *Decorator) send(packets [][]byte) {
 	glog.Infof("Received %d processed packets", len(packets))
+	// TODO: remove skipped
 	l := len(packets)
 	sent, skipped := 1, 0
 	for _, packet := range packets {
@@ -95,6 +83,7 @@ func (d *Decorator) send(packets [][]byte) {
 	glog.Infof("Skipped %d/%d", skipped, l)
 }
 
+// TODO: pull to top; add comment
 type Packet map[string]interface{}
 
 // Duplicates the contents of this packet into
@@ -134,6 +123,7 @@ func (d *Decorator) splitCollectdPacket(dimensions Packet, packet gocollectd.Pac
 	}
 
 	// Building base packet.  This is the information that is common to each packet.
+	//  TODO:  use constants here.
 	collectd := dimensions.Copy()
 	collectd["hostname"] = packet.Hostname
 	collectd["timestamp"] = packet.TimeUnix()
@@ -153,6 +143,7 @@ func (d *Decorator) splitCollectdPacket(dimensions Packet, packet gocollectd.Pac
 		var err error
 		if num, err = values[i].Number(); err != nil {
 			glog.Error(err)
+			// TODO:  this is returning an orphaned error with no metadata.  should it extend the existing packet?
 			packets[i] = Packet{"error": err}
 			continue
 		}
@@ -205,6 +196,7 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 				glog.Error(err)
 				i += 1
 			}
+			// TODO:  remove preallocated array in favor of runtime append.
 			output[i] = packetBytes
 			i += 1
 		}
@@ -268,6 +260,8 @@ func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
 		glog.Error("Decorator response unmarshal", err)
 		return nil, err
 	}
+
+	// TODO:  detect empty Packet and return an error.
 
 	// Priming the cache for next iteration.
 	d.cache[hostname] = decoration

@@ -15,5 +15,5 @@ max_retries = 1
 timeout_ms = 100
 
 [qa]
-enabled = true
+enabled = false
 server_count = 20

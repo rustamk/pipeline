@@ -61,6 +61,7 @@ func (p *Producer) watchProducer() {
 		case msg := <-p.producer.Errors():
 			glog.Error(msg)
 		default:
+			// TODO:  replace sleep with ticker.
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
