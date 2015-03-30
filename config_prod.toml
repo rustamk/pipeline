@@ -10,7 +10,7 @@ servers = [ "sde-kafka-01.bdn.lab.xcal.tv:9092","sde-kafka-02.bdn.lab.xcal.tv:90
 
 [decorator]
 # http://<hostname>/api/site/<site_id>/servers/<hostname>/dimensions
-hostname = "lputility.bdn.lab.xcal.tv"
+hostname = "10.22.237.122"
 site_id = 13
 
 # not used:

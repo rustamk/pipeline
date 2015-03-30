@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"net/http"
 	"time"
@@ -139,15 +140,24 @@ func (d *Decorator) splitCollectdPacket(dimensions Packet, packet gocollectd.Pac
 	valueNames := packet.ValueNames()
 	values := packet.Values()
 	for i := 0; i < valueCount; i++ {
+		p := collectd.Copy()
 		var num gocollectd.Number
 		var err error
 		if num, err = values[i].Number(); err != nil {
 			glog.Error(err)
-			// TODO:  this is returning an orphaned error with no metadata.  should it extend the existing packet?
-			packets[i] = Packet{"error": err}
+			p["error"] = err
+			packets[i] = p
+			continue
+
+		} else if math.IsNaN(num.Float64()) {
+			// NaN is an indication that collectd recieved no data for a gauge in a given interval.
+			// We deal with missing data in the application layer, instead of shipping garbage into the DB.
+			err = errors.New("NaN value received from host.")
+			glog.Error(err)
+			p["error"] = err
+			packets[i] = p
 			continue
 		}
-		p := collectd.Copy()
 		p["metric"] = valueNames[i]
 		p["value"] = num.Float64()
 		p["series_type"] = num.CollectdType()
@@ -176,29 +186,21 @@ func (d *Decorator) parseCollectdPacket(b []byte) ([][]byte, error) {
 		glog.Infof("Retrieved metadata ")
 	}
 
-	// Since packets can contain multiple values, we walk the packets array
-	// prior to processing in order to retrieve a complete packetCount for use
-	// in output array allocation.
-	packetCount := 0
-	for _, packet := range *packets {
-		packetCount += packet.ValueCount()
-	}
-
 	// Walking the collectd packets, appending metadata, serializing, and
 	// depositing into output context.
-	i := 0
-	output := make([][]byte, packetCount)
-	for _, packet := range *packets {
-		packets, _ := d.splitCollectdPacket(dimensions, packet)
+	output := make([][]byte, 0)
+	for _, packetRaw := range *packets {
+		packets, _ := d.splitCollectdPacket(dimensions, packetRaw)
 		for _, packet := range *packets {
+			if _, err := packet["error"]; err {
+				continue
+			}
 			packetBytes, err := json.Marshal(packet)
 			if err != nil {
 				glog.Error(err)
-				i += 1
+				continue
 			}
-			// TODO:  remove preallocated array in favor of runtime append.
-			output[i] = packetBytes
-			i += 1
+			output = append(output, packetBytes)
 		}
 	}
 	return output, nil
@@ -233,6 +235,7 @@ func (d *Decorator) getHostData(hostname string) (Packet, error) {
 // Retrieves decoration string from a remote API.
 func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
 	url := fmt.Sprintf(d.config.Decorator.GetHostString(), hostname)
+	glog.Infof("Retrieving %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		glog.Error("Decorator HTTP request", err)

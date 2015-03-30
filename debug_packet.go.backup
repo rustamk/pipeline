@@ -1,0 +1,295 @@
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"log"
+
+	"github.comcast.com/viper-sde/gocollectd"
+)
+
+//var argh []byte = []byte{0, 0, 0, 45, 99, 100, 118, 114, 45, 115, 56, 106, 105, 116, 112, 45, 98, 100, 110, 110, 45, 48, 49, 46, 98, 100, 110, 45, 110, 101, 120, 116, 46, 108, 97, 98, 46, 120, 99, 97, 108, 46, 116, 118, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 85, 145, 0, 9, 0, 12, 0, 0, 0, 15, 0, 0, 0, 0, 0, 2, 0, 9, 116, 97, 105, 108, 0, 0, 3, 0, 14, 97, 99, 99, 101, 115, 115, 108, 111, 103, 0, 0, 4, 0, 10, 103, 97, 117, 103, 101, 0, 0, 5, 0, 22, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 0, 0, 248, 127, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 169, 205, 0, 5, 0, 23, 97, 108, 108, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 0, 224, 101, 64, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 184, 59, 0, 4, 0, 12, 99, 111, 117, 110, 116, 101, 114, 0, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 49, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 19, 73, 15, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 195, 187, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 50, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 252, 201, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 205, 222, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 51, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 119, 238, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 215, 253, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 52, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 1, 136, 169, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 224, 213, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 53, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 45, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 235, 251, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 54, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 8, 0, 12, 21, 70, 97, 253, 227, 74, 246, 120, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 55, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 75, 1, 63, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 56, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 75, 12, 17, 0, 5, 0, 25, 116, 115, 45, 114, 101, 115, 112, 111, 110, 115, 101, 45, 116, 105, 109, 101, 115, 45, 99, 57, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 110, 38, 0, 3, 0, 14, 115, 117, 112, 101, 114, 56, 108, 111, 103, 0, 0, 5, 0, 24, 99, 108, 105, 101, 110, 116, 45, 98, 97, 100, 45, 114, 101, 113, 117, 101, 115, 116, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 157, 183, 0, 5, 0, 18, 115, 101, 114, 118, 101, 114, 45, 101, 114, 114, 111, 114, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 139, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 170, 172, 0, 5, 0, 24, 100, 97, 115, 104, 45, 99, 111, 110, 116, 101, 110, 116, 45, 101, 114, 114, 111, 114, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 179, 176, 0, 5, 0, 23, 109, 112, 103, 45, 99, 111, 110, 116, 101, 110, 116, 45, 101, 114, 114, 111, 114, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 190, 76, 0, 5, 0, 15, 99, 107, 109, 45, 101, 114, 114, 111, 114, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 201, 97, 0, 5, 0, 22, 114, 101, 100, 105, 115, 45, 114, 101, 97, 100, 45, 109, 105, 115, 115, 101, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 97, 253, 227, 77, 212, 39, 0, 5, 0, 25, 114, 101, 100, 105, 115, 45, 119, 114, 105, 116, 101, 45, 102, 97, 105, 108, 117, 114, 101, 115, 0, 0, 6, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 98, 12, 227, 48, 130, 247, 0, 2, 0, 11, 109, 101, 109, 111, 114, 121, 0, 0, 3, 0, 5, 0, 0, 4, 0, 11, 109, 101, 109, 111, 114, 121, 0, 0, 5, 0, 9, 117, 115, 101, 100, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 60, 254, 215, 65, 0, 8, 0, 12, 21, 70, 98, 12, 227, 48, 238, 128, 0, 5, 0, 13, 98, 117, 102, 102, 101, 114, 101, 100, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 64, 39, 161, 65, 0, 8, 0, 12, 21, 70, 98, 12, 227, 48, 252, 19, 0, 5, 0, 11, 99, 97, 99, 104, 101, 100, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 116, 162, 220, 65, 0, 8, 0, 12, 21, 70, 98, 12, 227, 49, 5, 162, 0, 5, 0, 9, 102, 114, 101, 101, 0, 0, 6, 0, 15, 0, 1, 1, 0, 0, 0, 0, 248, 86, 226, 65, 0, 8, 0, 12, 21, 70, 98, 12, 227, 50, 29, 58, 0, 2, 0, 9, 108, 111, 97, 100, 0, 0, 4, 0, 9, 108, 111, 97, 100, 0, 0, 5, 0, 5, 0, 0, 6, 0, 33, 0, 3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 21, 70, 98, 12, 227, 51, 44, 250, 0, 2, 0, 8, 99, 112, 117, 0, 0, 3, 0, 6, 48, 0, 0, 4, 0, 8, 99, 112, 117, 0, 0, 5, 0, 9, 117, 115, 101, 114, 0, 0, 6, 0, 15, 0, 1, 2, 0, 0, 0, 0, 1, 238, 56, 146}
+
+const (
+	TYPE_HOST = iota
+	TYPE_TIME
+	TYPE_PLUGIN
+	TYPE_PLUGIN_INSTANCE
+	TYPE_TYPE
+	TYPE_TYPE_INSTANCE
+	TYPE_VALUES
+	TYPE_INTERVAL
+	TYPE_TIME_HR
+	TYPE_INTERVAL_HR
+
+	TYPE_MESSAGE  uint16 = 0x0100
+	TYPE_SEVERITY uint16 = 0x0101
+
+	DATATYPE_COUNTER  uint8 = 0
+	DATATYPE_GAUGE    uint8 = 1
+	DATATYPE_DERIVE   uint8 = 2
+	DATATYPE_ABSOLUTE uint8 = 3
+)
+
+type collectdMessage struct {
+	Hostname       string
+	Timestamp      uint64
+	TSPrecision    uint64
+	Plugin         string
+	PluginInstance string
+	Type           string
+	TypeInstance   string
+	Values         []collectdValue
+
+	err bool
+}
+
+func (c *collectdMessage) Copy() *collectdMessage {
+	return &collectdMessage{
+		Hostname:       c.Hostname,
+		Timestamp:      c.Timestamp,
+		TSPrecision:    c.TSPrecision,
+		Plugin:         c.Plugin,
+		PluginInstance: c.PluginInstance,
+		Type:           c.Type,
+		TypeInstance:   c.TypeInstance,
+		err:            c.err,
+	}
+}
+
+// Generates a nanosecond-precision timestamp and casts to int64.
+func (c *collectdMessage) GetTimestamp() *int64 {
+	ts := int64(c.Timestamp)
+	ts = ts * 1000000
+	return &ts
+}
+
+// Handling errors by assigning a boolean value to the collectdMessage
+// and updating whenever a value is set.  This enables us to check for errors
+// just once - right before deciding whether to save the value.
+// http://blog.golang.org/errors-are-values
+func (c *collectdMessage) AddError(e error) {
+	if e != nil {
+		c.err = true
+	}
+}
+func (c *collectdMessage) HasError() bool {
+	return c.err
+}
+func (c *collectdMessage) ClearError() {
+	c.err = false
+}
+
+type collectdValue struct {
+	Code  uint8
+	Value uint64
+}
+
+// Accepts a collectd network packet and parses the binary protocol into an array of message objects.
+func parseMetric(b []byte) (messages []*collectdMessage, err error) {
+
+	messages = []*collectdMessage{}
+	msg := &collectdMessage{
+		TSPrecision: 0,
+	}
+
+	// TODO:  perform cursory validation against the incoming byte array prior to loading into a buffer.
+
+	// Here, we walk the collectd
+	offset := 0
+	for offset < len(b) {
+		var head header
+		var err error
+
+		buf := bytes.NewBuffer(b[offset:])
+		binary.Read(buf, binary.BigEndian, &head)
+		if head.Length == 0 {
+			break
+		}
+
+		switch head.Type {
+
+		// String types
+		case TYPE_HOST:
+			msg.Hostname, err = unpackString(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_PLUGIN:
+			msg.Plugin, err = unpackString(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_PLUGIN_INSTANCE:
+			msg.PluginInstance, err = unpackString(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_TYPE:
+			msg.Type, err = unpackString(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_TYPE_INSTANCE:
+			msg.TypeInstance, err = unpackString(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+
+		// Numeric types
+		case TYPE_TIME:
+			msg.Timestamp, err = unpackNumeric(head.PartLength(), buf)
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_TIME_HR:
+			// High Res time.
+			// https://collectd.org/wiki/index.php/High_resolution_time_format
+			msg.Timestamp, err = unpackNumeric(head.PartLength(), buf)
+			msg.Timestamp = msg.Timestamp >> 30
+			msg.AddError(err)
+			msg = msg.Copy()
+		case TYPE_INTERVAL, TYPE_INTERVAL_HR, TYPE_SEVERITY:
+			// Do nothing.  We don't care about this information.
+			unpackNumeric(head.PartLength(), buf)
+		case TYPE_MESSAGE:
+			unpackString(head.PartLength(), buf)
+
+		// Value types
+		default:
+			types, values, err := unpackValue(head.PartLength(), buf)
+			msg.AddError(err)
+			msg.Values = make([]collectdValue, len(types))
+			for i := range types {
+				msg.Values[i] = collectdValue{
+					Code:  types[i],
+					Value: values[i],
+				}
+			}
+
+			// This is the _only_ place where we append a metric to the output array.
+			// After assigning the metric to the array, we create a copy of the metric which clears its data.
+			if !msg.HasError() {
+				messages = append(messages, msg)
+			}
+			msg = msg.Copy()
+			msg.ClearError()
+		}
+
+		offset += int(head.Length)
+	}
+
+	return messages, nil
+}
+
+// The collectd binary protocol uses run-length encoding to pack data
+// of different types into a binary structure.  Headers are interspersed
+// throughout the blob, and indicate the type code and length of the
+// following part in 4 bytes.
+// The Length value is inclusive of the 4-byte size of the header.
+type header struct {
+	Type, Length uint16
+}
+
+// Returns the length of the part following the header, exclusive of the header's length.
+func (h *header) PartLength() uint16 {
+	if h.Length < 4 {
+		return 0
+	}
+	return h.Length - 4
+}
+
+// Unpacks a collectd string part with length 'l'
+// https://collectd.org/wiki/index.php/Binary_protocol#String_parts
+func unpackString(l uint16, buf *bytes.Buffer) (string, error) {
+	if int(l) > buf.Len() {
+		return "", errors.New("Length specified by header exceeds length of remaining buffer.")
+	}
+	b := make([]byte, l)
+	buf.Read(b)
+	return string(b), nil
+}
+
+// Unpacks a collectd numeric part with length 'l'
+// https://collectd.org/wiki/index.php/Binary_protocol#Numeric_parts
+func unpackNumeric(l uint16, buf *bytes.Buffer) (uint64, error) {
+	if int(l) > buf.Len() {
+		return 0, errors.New("Length specified by header exceeds length of remaining buffer.")
+	}
+
+	var num uint64
+	binary.Read(buf, binary.BigEndian, &num)
+	return num, nil
+}
+
+// Unpacks an encoded collectd value part into arrays of type and value, respectively.
+// Collectd Value parts are comprised of one or more data type codes, indicating
+// whether the value is a Counter/Gauge/Derive/Absolute, and one or more values corresponding
+// to each packed type.
+// The value count is provided by a 16 bit field immediately folling the header.
+// type codes are uint8; values are int64
+// [type][type][type][value][value][value]
+// https://collectd.org/wiki/index.php/Binary_protocol#Value_parts
+func unpackValue(l uint16, buf *bytes.Buffer) (types []uint8, values []uint64, err error) {
+	if int(l) > buf.Len() {
+		return types, values, errors.New("Length specified by header exceeds length of remaining buffer.")
+	}
+
+	var valueCount uint16
+	binary.Read(buf, binary.BigEndian, &valueCount)
+
+	types = make([]uint8, valueCount)
+	values = make([]uint64, valueCount)
+
+	var i uint16
+	for i = 0; i < valueCount; i++ {
+		binary.Read(buf, binary.BigEndian, &types[i])
+	}
+	for i = 0; i < valueCount; i++ {
+		if types[i] == DATATYPE_GAUGE {
+			var x float64
+			binary.Read(buf, binary.LittleEndian, &x)
+			values[i] = uint64(x)
+		} else if types[i] == DATATYPE_COUNTER || types[i] == DATATYPE_ABSOLUTE {
+			binary.Read(buf, binary.BigEndian, &values[i])
+		} else if types[i] == DATATYPE_DERIVE {
+			// Derive is a signed integer value.  we convert to uint at the risk of totally overflowing it.
+			var x int64
+			binary.Read(buf, binary.BigEndian, &x)
+			values[i] = uint64(x)
+
+		} else {
+			return types, values, errors.New("Collectd data type not supported (coutners/gauge only)")
+		}
+	}
+
+	return types, values, nil
+}
+
+func main() {
+
+	var packets *[]gocollectd.Packet
+	var err error
+	if packets, err = gocollectd.Parse(argh); err != nil {
+		log.Fatal(err)
+	}
+
+	for i, packet := range *packets {
+		fmt.Println(i, packet)
+		for _, value := range packet.Values() {
+			n, err := value.Number()
+			fmt.Println(value, err, n, n.Float64())
+		}
+	}
+
+	fmt.Println("===========================================")
+
+	var messages []*collectdMessage
+	if messages, err = parseMetric(argh); err != nil {
+		log.Fatal(err)
+	}
+
+	for i, msg := range messages {
+		fmt.Println(i, msg)
+		for _, value := range msg.Values {
+			fmt.Println(value, value.Code, value.Value, float64(value.Value))
+		}
+	}
+
+}
