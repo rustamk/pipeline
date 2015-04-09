@@ -1,1 +1,0 @@
-plexus.test.server.data|collection01|metric01~150
