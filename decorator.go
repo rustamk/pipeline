@@ -25,6 +25,19 @@ const (
 	packetName                  = "name"
 )
 
+// Packet is a representation of collectd data in a simple map[string]interface that permits the publication
+// of arbitrary decorated fields to the remove datasource via the decorator's outbound channel.
+type Packet map[string]interface{}
+
+// Duplicates the contents of this packet into a new Packet instance.
+func (p Packet) Copy() Packet {
+	dst := Packet{}
+	for key, value := range p {
+		dst[key] = value
+	}
+	return dst
+}
+
 // Creates a new decorator
 func NewDecorator(config *Config, inbound chan []byte, outbound chan []byte) (*Decorator, error) {
 	cache := make(map[string]Packet)
@@ -90,18 +103,6 @@ func (d *Decorator) send(packets [][]byte) {
 	}
 	glog.Info(len(d.outbound), " slots in outbound queue.")
 	glog.Infof("Sent %d/%d", sent, l)
-}
-
-// TODO: pull to top; add comment
-type Packet map[string]interface{}
-
-// Duplicates the contents of this packet into
-func (p Packet) Copy() Packet {
-	dst := Packet{}
-	for key, value := range p {
-		dst[key] = value
-	}
-	return dst
 }
 
 // Given an array of collectd.Packet objects, extracts the hostname and returns
