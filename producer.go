@@ -55,14 +55,14 @@ func (p *Producer) readInbound() {
 }
 
 func (p *Producer) watchProducer() {
+	t := time.NewTicker(10 * time.Millisecond)
 	for {
 		select {
+		case _ = <-t.C:
+			//do nothing.
 		case _ = <-p.producer.Successes():
 		case msg := <-p.producer.Errors():
 			glog.Error(msg)
-		default:
-			// TODO:  replace sleep with ticker.
-			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
