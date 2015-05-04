@@ -11,10 +11,7 @@ import (
 
 var _ = fmt.Println
 
-func main() {
-	flag.Set("logtostderr", "true")
-
-	config := GetConfig()
+func run(config *Config) {
 
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.ClientID = config.Kafka.ClientId
@@ -49,7 +46,14 @@ func main() {
 	start := time.Now()
 	for {
 		glog.Infof("Running %v", time.Now().Sub(start))
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
+}
+
+func main() {
+	flag.Set("logtostderr", "true")
+
+	config := GetConfig()
+	run(config)
 }
