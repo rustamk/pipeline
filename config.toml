@@ -1,0 +1,19 @@
+channel_size = 2000
+
+[kafka]
+client_id = "decorator-client"
+group_id = "decorator-group"
+raw_topic_name = "test"
+decorated_topic_name = "test-decorated"
+servers = [ "192.168.59.103:9092" ]
+
+
+[decorator]
+hostname = "localhost:8000"
+site_id = 13
+max_retries = 1
+timeout_ms = 100
+
+[qa]
+enabled = false
+server_count = 20

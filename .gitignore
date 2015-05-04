@@ -1,0 +1,4 @@
+*.swp
+*.out
+
+Godeps/_workspace/

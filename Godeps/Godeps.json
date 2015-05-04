@@ -1,0 +1,33 @@
+{
+	"ImportPath": "github.comcast.com/viper-sde/pipeline",
+	"GoVersion": "go1.4.2",
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/snappy-go/snappy",
+			"Comment": "null-20",
+			"Rev": "8850bd446ad6f18a271a08aae26bdf85bdf87c7f"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-resiliency/breaker",
+			"Comment": "v1",
+			"Rev": "6800482f2c813e689c88b7ed3282262385011890"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.comcast.com/gomirror/toml",
+			"Comment": "v0.1.0-16-gf706d00",
+			"Rev": "f706d00e3de6abe700c994cdd545a1a4915af060"
+		},
+		{
+			"ImportPath": "github.comcast.com/viper-sde/gocollectd",
+			"Rev": "34ebd1357d1f0b4bbb25675b3c8476f3a1df24f2"
+		},
+		{
+			"ImportPath": "github.comcast.com/viper-sde/sarama",
+			"Rev": "20700b5c7cc5ebccaccc5b73f349bf47b5648892"
+		}
+	]
+}

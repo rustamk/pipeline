@@ -1,55 +1,43 @@
-# Data Processing Pipeline Utilities
+# Kafka Processing Pipeline
 
-Here are utilities for processing raw data into some useable form.
-
-Either in the case of reading CSV off of the Plexus and feeding it into
-an external data source.
-
-Or in the case of serving up the CSV files from disk.
-
-Or in the case of reading raw data from Kafka and writing decorated data back
-to Kafka.
+This is a utility that reads data off of a Kafka topic, polls an API service to retrieve 
+decoration / dimensions for the host that generated the stored metric, then publishes the
+combined metric back to a different Kafka topic.
 
 
-## Utilities
+## Usage
 
-**./server**
-utility for reading static files and serving their contents as JSON
+Requires a Kafka instance and an API host that returns a decorator.  
 
-**./plexus**
-utility for reading CSV data, taking a delta, and writing that data to kafka
+`./pipeline`
 
-**./decorator.go**
-utility for reading from a kafka queue, decorating data using a remote API, and writing to a different queue
+## Runtime Flags
 
-## Code formatting guidelines
-
-Use `go fmt`
+None.
 
 
-## Evaluating test coverage
+## Configuration
 
-100% coverage isn't as important as having coverage over the contact points between our application and the outside world.  
+Configuration is set in `config.toml`.  
 
-Anywhere data is prepared from an outside source into an internal representation, that's somewhere we should have a test.  
-The rest can be design-by-contract, at least until we have interns to sic on the task.
+**Kafka**
 
-```
-$ go test
-PASS
-ok      github.comcast.com/viper-sde/pipeline   0.007s
-$ go test -cover
-
-PASS
-coverage: 5.2% of statements
-ok      github.comcast.com/viper-sde/pipeline   0.006s
-$ go test -coverprofile=coverage.out
-
-PASS
-coverage: 5.2% of statements
-ok      github.comcast.com/viper-sde/pipeline   0.008s
-
-$ go tool cover -html=coverage.out
-```
+- client_id : sets the value of the client id that gets sent to Kafka. 
+- group_id : not used at present.  sets the value of the group identity which Kafka uses to ensure all consumers of a topic do not have overlapping reads.
+- raw_topic_name : the name of the topic where incoming raw data can be retrieved
+- decorated_topic_name : the name of the topic where processed JSON is deposited
+- servers : an array of <hostname>:<port> values for the Kafka brokers.
 
 
+**Decorator**
+
+- hostname : this is the host:port pair for the decorator API service.
+- site_id : this is used to build the URL string.  the decorator at a site must be site=id aware.
+- max_retries : not used.  would inform the retry logic for API http requests
+- timeout_ms : not used.  would inform the maximum amount of time the decorator will wait before terminating the request.
+
+
+**QA**
+
+- enabled : determines whether server randomizer is enabled.
+- server_count : determines the number of random servers to create.
