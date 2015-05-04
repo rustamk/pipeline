@@ -80,9 +80,8 @@ func (d *Decorator) readInbound() {
 
 func (d *Decorator) send(packets [][]byte) {
 	glog.Infof("Received %d processed packets", len(packets))
-	// TODO: remove skipped
 	l := len(packets)
-	sent, skipped := 1, 0
+	sent := 1
 	for _, packet := range packets {
 		select {
 		case d.outbound <- packet:
@@ -91,7 +90,6 @@ func (d *Decorator) send(packets [][]byte) {
 	}
 	glog.Info(len(d.outbound), " slots in outbound queue.")
 	glog.Infof("Sent %d/%d", sent, l)
-	glog.Infof("Skipped %d/%d", skipped, l)
 }
 
 // TODO: pull to top; add comment
