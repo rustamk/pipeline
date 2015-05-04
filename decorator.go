@@ -272,7 +272,11 @@ func (d *Decorator) getRemoteHostData(hostname string) (Packet, error) {
 		return nil, err
 	}
 
-	// TODO:  detect empty Packet and return an error.
+	// detect empty Packet and return an error.
+	if len(decoration) == 0 {
+		glog.Error("Decorator decoration contents check")
+		return nil, errors.New("Call to decorator yielded empty decoration object.")
+	}
 
 	// Priming the cache for next iteration.
 	d.cache[hostname] = decoration
