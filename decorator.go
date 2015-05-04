@@ -15,6 +15,16 @@ import (
 	"github.comcast.com/viper-sde/gocollectd"
 )
 
+const (
+	packetHostname       string = "hostname"
+	packetTimestamp             = "timestamp"
+	packetPlugin                = "plugin"
+	packetPluginInstance        = "plugin_instance"
+	packetType                  = "type"
+	packetTypeInstance          = "type_instance"
+	packetName                  = "name"
+)
+
 // Creates a new decorator
 func NewDecorator(config *Config, inbound chan []byte, outbound chan []byte) (*Decorator, error) {
 	cache := make(map[string]Packet)
@@ -124,15 +134,14 @@ func (d *Decorator) splitCollectdPacket(dimensions Packet, packet gocollectd.Pac
 	}
 
 	// Building base packet.  This is the information that is common to each packet.
-	//  TODO:  use constants here.
 	collectd := dimensions.Copy()
-	collectd["hostname"] = packet.Hostname
-	collectd["timestamp"] = packet.TimeUnix()
-	collectd["plugin"] = packet.Plugin
-	collectd["plugin_instance"] = packet.PluginInstance
-	collectd["type"] = packet.Type
-	collectd["type_instance"] = packet.TypeInstance
-	collectd["name"] = packet.Name()
+	collectd[packetHostname] = packet.Hostname
+	collectd[packetTimestamp] = packet.TimeUnixNano()
+	collectd[packetPlugin] = packet.Plugin
+	collectd[packetPluginInstance] = packet.PluginInstance
+	collectd[packetType] = packet.Type
+	collectd[packetTypeInstance] = packet.TypeInstance
+	collectd[packetName] = packet.Name()
 
 	// Packets can have >1 value - for instance, load average (1,5,15), network (tx,rx)
 	// In these cases, we split the packet into multiple packets and return both.
