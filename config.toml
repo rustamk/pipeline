@@ -4,19 +4,16 @@ channel_size = 2000
 client_id = "decorator-client"
 group_id = "decorator-group"
 raw_topic_name = "test"
-decorated_topic_name = "collectd_decorated"
-servers = [ "sde-kafka-01.bdn.lab.xcal.tv:9092","sde-kafka-02.bdn.lab.xcal.tv:9092" ]
+decorated_topic_name = "test-decorated"
+servers = [ "192.168.59.103:9092" ]
 
 
 [decorator]
-# http://<hostname>/api/site/<site_id>/servers/<hostname>/dimensions
-hostname = "10.22.237.122"
+hostname = "localhost:8000"
 site_id = 13
-
-# not used:
 max_retries = 1
 timeout_ms = 100
 
 [qa]
 enabled = false
-server_count = 50
+server_count = 20
