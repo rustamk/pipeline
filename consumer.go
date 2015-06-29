@@ -3,12 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
-
 	"time"
-
 	"github.com/golang/glog"
-
-	"github.comcast.com/viper-sde/sarama"
+	"gopkg.in/Shopify/sarama.v1"
 )
 
 var _ = fmt.Println
@@ -16,11 +13,11 @@ var _ = fmt.Println
 // stub wrapper around sarama.Client
 type Client interface {
 	Partitions(string) ([]int32, error)
-	GetOffset(string, int32, sarama.OffsetTime) (int64, error)
+	GetOffset(string, int32, int64) (int64, error)
 }
 
 type ClientConsumer interface {
-	ConsumePartition(string, int32, int64) (*sarama.PartitionConsumer, error)
+	ConsumePartition(string, int32, int64) (sarama.PartitionConsumer, error)
 }
 
 // Wrapper around sarama.PartitionConsumer
@@ -44,7 +41,7 @@ func NewConsumer(config *Config, outboundChan chan []byte, client Client) (*Cons
 	}
 
 	var err error
-	c.consumer, err = sarama.NewConsumerFromClient(c.client.(*sarama.Client))
+	c.consumer, err = sarama.NewConsumerFromClient(c.client.(sarama.Client))
 	return c, err
 }
 
@@ -94,9 +91,9 @@ func (c *Consumer) startKafkaListener() {
 	// If the number of Kafka partitions is changed during runtime, this will chug along unaffected, but
 	// data pushed into the new partitions will not be ingested.  The process will need to be restarted.
 	for partition := range partitions {
-		glog.Infof("Initializing partition %d at offset %d", partition, sarama.LatestOffsets)
+		glog.Infof("Initializing partition %d at offset %d", partition, sarama.OffsetNewest)
 		p := int32(partition)
-		offset, _ := c.client.GetOffset(c.topic, p, sarama.LatestOffsets)
+		offset, _ := c.client.GetOffset(c.topic, p, sarama.OffsetNewest)
 		_ = c.createPartitionListener(p, offset, c.consumer)
 
 	}

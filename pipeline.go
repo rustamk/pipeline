@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.comcast.com/viper-sde/sarama"
+	"gopkg.in/Shopify/sarama.v1"
 )
 
 var _ = fmt.Println

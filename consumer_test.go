@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.comcast.com/viper-sde/sarama"
+	"gopkg.in/Shopify/sarama.v1"
 )
 
 var _ = fmt.Println
@@ -83,7 +83,7 @@ func (c *mockClient) Partitions(topic string) ([]int32, error) {
 	return ret, nil
 }
 
-func (c mockClient) GetOffset(topic string, partition int32, offset sarama.OffsetTime) (int64, error) {
+func (c mockClient) GetOffset(topic string, partition int32, offset int64) (int64, error) {
 	var i int64 = -1
 	return i, nil
 }

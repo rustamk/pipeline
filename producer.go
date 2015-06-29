@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.comcast.com/viper-sde/sarama"
+	"gopkg.in/Shopify/sarama.v1"
 )
 
 func NewProducer(config *Config, inbound chan []byte, client Client) (*Producer, error) {
@@ -17,7 +17,7 @@ func NewProducer(config *Config, inbound chan []byte, client Client) (*Producer,
 		errors:  make(chan error),
 	}
 	var err error
-	p.producer, err = sarama.NewProducerFromClient(client.(*sarama.Client))
+	p.producer, err = sarama.NewAsyncProducerFromClient(client.(sarama.Client))
 	return p, err
 }
 
@@ -31,7 +31,7 @@ type Producer struct {
 	topic  string
 	client Client
 
-	producer *sarama.Producer
+	producer sarama.AsyncProducer
 }
 
 func (p *Producer) Start() {
